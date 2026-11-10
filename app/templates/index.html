@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TaskFlow Lite</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <p class="eyebrow">SWYNEX · STARTER APPLICATION</p>
+      <h1>TaskFlow Lite</h1>
+      <p class="subtitle">A simple space to organise your day.</p>
+    </header>
+    <form id="task-form" class="task-form">
+      <label for="title">Task title</label>
+      <input id="title" maxlength="120" placeholder="e.g. Complete architecture document" required>
+      <label for="description">Description (optional)</label>
+      <textarea id="description" maxlength="1000" rows="3" placeholder="Add a few details..."></textarea>
+      <button type="submit">Add task</button>
+      <p id="message" role="status"></p>
+    </form>
+    <section aria-labelledby="tasks-heading">
+      <div class="section-heading">
+        <h2 id="tasks-heading">Your tasks</h2>
+        <span id="task-count">0 tasks</span>
+      </div>
+      <ul id="task-list" class="task-list"></ul>
+    </section>
+  </main>
+  <script>
+    const form = document.querySelector('#task-form');
+    const list = document.querySelector('#task-list');
+    const message = document.querySelector('#message');
+    const count = document.querySelector('#task-count');
+
+    async function loadTasks() {
+      const response = await fetch('/api/tasks');
+      const tasks = await response.json();
+      list.replaceChildren();
+      count.textContent = `${tasks.length} task${tasks.length === 1 ? '' : 's'}`;
+      tasks.forEach(task => {
+        const li = document.createElement('li');
+        li.className = 'task' + (task.is_completed ? ' completed' : '');
+        const details = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = task.title;
+        const description = document.createElement('p');
+        description.textContent = task.description || 'No description';
+        details.append(title, description);
+
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        const toggle = document.createElement('button');
+        toggle.textContent = task.is_completed ? 'Reopen' : 'Complete';
+        toggle.className = 'secondary';
+        toggle.onclick = async () => {
+          await fetch(`/api/tasks/${task.id}/status`, { method: 'PATCH' });
+          loadTasks();
+        };
+        const remove = document.createElement('button');
+        remove.textContent = 'Delete';
+        remove.className = 'danger';
+        remove.onclick = async () => {
+          await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' });
+          loadTasks();
+        };
+        actions.append(toggle, remove);
+        li.append(details, actions);
+        list.append(li);
+      });
+    }
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const payload = {
+        title: document.querySelector('#title').value,
+        description: document.querySelector('#description').value
+      };
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        message.textContent = 'Could not create task. Check the title and try again.';
+        return;
+      }
+      form.reset();
+      message.textContent = 'Task added.';
+      loadTasks();
+    });
+
+    loadTasks();
+  </script>
+</body>
+</html>
